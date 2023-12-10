@@ -1,0 +1,313 @@
+Vue+Axios+Servlet来实现前后端分离的Web应用程序
+
+项目中所用的相关知识点
+1.Servlet
+2.Session的使用
+3.AJAX
+4.使用MVC的开发模式
+5.Service中如何来处理事物
+6.com.foreknow.elm.dao
+7.服务器端的json的数据的转换
+8.vue_cli的脚手架
+9.git的使用
+
+一、设计数据库(根据项目的需要设计多少张表合适呢，真正的项目中表的结构是不需要你设计的)
+1.business   商家表
+	businessId		商家编号
+	businessName			商家名称
+	businessAddress	商家地址
+	businessExplain			商家介绍
+	businessImg		商家图片（base64）
+	orderTypeId			点餐分类
+	starPrice		起送费
+	deliveryPrice		配送费
+	remarks		备注
+2.food 食品表
+3.cart 购物车表
+4.deliveryaddress 送货地址表
+5.orders 订单表
+6.orderdetailet 订单明细表
+7.user 用户表
+
+服务器端项目的搭建
+1.搭建开发的环境
+  开发工具： vscode   idea   mysql
+  jdk的版本:jdk8
+  服务器 tomcat8
+  编码格式 utf-8
+
+2.搭建JavaWeb工程的架构
+2.1 创建一个Web工程
+2.2 导入所需要的jar包
+
+    Jackson 是当前用的比较广泛的，用来序列化和反序列化 json 的 Java 的开源框架。
+    Jackson 社 区相对比较活跃，更新速度也比较快， 从 Github 中的统计来看，
+    Jackson 是最流行的 json 解析器之一 。
+    Spring MVC 的默认 json 解析器便是 Jackson。 Jackson 优点很多。
+    Jackson 所依赖的 jar 包较少 ，简单易用。
+    与其他 Java 的 json 的框架 Gson 等相比， Jackson 解析大的 json 文件速度比较快；
+    Jackson 运行时占用内存比较低，性能比较好；
+    Jackson 有灵活的 API，可以很容易进行扩展和定制。
+
+
+      注解包，提供标准注解功能
+    jackson-annotations-2.11.0.jar
+      核心包，提供基于"流模式"解析的相关 API，它包括 JsonPaser 和 JsonGenerator。 Jackson 内部实现正是通过高性能的流模式 API 的 JsonGenerator 和 JsonParser 来生成和解析 json。
+    jackson-core-2.11.0.jar
+      数据绑定包， 提供基于"对象绑定" 解析的相关 API （ ObjectMapper ） 和"树模型" 解析的相关 API （JsonNode）；基于"对象绑定" 解析的 API 和"树模型"解析的 API 依赖基于"流模式"解析的 API
+    jackson-databind-2.11.0.jar
+    mysql-connector-java-5.1.49-bin.jar  MySQL的驱动
+
+    MVC架构的解决方案
+      1.我们可以对之前的MVC的结构进行优化
+      2.当前的工程会采用：约定优于配置的原则来搭建MVC的构架
+      3.在当前的项目中约定的规则：
+        请求的url与Controller方法映射：http://localhost:8080/elm/Controller类名/Controller方法
+      4.在当前的项目中我们不需要任何配置文件(0配制)
+
+    前端控制器DispatcherServlet的任务：
+    1.中文编码的处理
+    2.获取客户端请求的路径(/Controller类名/Controller方法)：请求的url与Controller方法映射：http://localhost:8080/elm/Controller类名/Controller方法
+    3.根据获取到的请求路径来获取到Controller类名以及Controller的方法名
+    4.调用Controller中的方法
+    5.最后将获取到的数据以json的格式返回给客户端
+
+
+    在前后端分离的项目跨域问题解决的方案
+
+    一、什么是CORS
+    CORS是一个W3C标准，全称是"跨域资源共享"（Cross-origin resource sharing）。
+    它允许浏览器向跨源服务器，发出XMLHttpRequest请求，从而克服了AJAX只能同源使用的限制。
+    只要服务器实现了CORS接口，就可以跨源通信。
+
+    CORS有两种请求，简单请求和非简单请求。
+
+    二、同源
+    跨域就等于从百度访问谷歌的资源，URL由协议、域名、端口和路径组成，如果两个URL的协议、域名和端口相同，则表示他们同源。相反，只要协议，域名，端口有任何一个的不同，就被当作是跨域。
+    浏览器采用同源策略，禁止页面加载或执行与自身来源不同的域的任何脚本。
+
+    CORS常见的header
+
+    response.setHeader("Access-Control-Allow-Origin","http://locahost:8081");
+    response.setHeader("Access-Control-Allow-Credentail","true");
+    response.setHeader("Access-Control-Allow-Methods","GET, PUT, DELETE, POST");
+    response.setHeader("Access-Control-Max-Age","3628800");
+    response.setHeader("Access-Control-Allow-Headers","x-requested-with,Authorization");
+
+    “Access-Control-Allow-Origin"表明它允许” http://kbiao.me "发起跨域请求
+
+    "Access-Control-Max-Age"表明在3628800秒内，不需要再发送预检验请求，可以缓存该结果（上面的资料上我们知道CROS协议中，一个AJAX请求被分成了第一步的OPTION预检测请求和正式请求）
+
+    "Access-Control-Allow-Methods"表明它允许GET、PUT、DELETE的外域请求
+
+    "Access-Control-Allow-Headers"表明它允许跨域请求包含content-type头
+
+    "Access-Control-Allow-Credentials"表明它允许cookies
+---------------------------------------------------------------------------------------
+    在当前的项目中事物是如何来处理的,事物的处理应该在Service层
+
+    1.Connection的创建与销毁都要放在Service层。
+    2.为了保证在同一次请求处理的线程中，Service层和dao层共同使用一个Connection对象，
+      需要将Connection对放放入到ThreadLocal中。Service层和dao层使用的Connection对象都是从ThreadLocal中获取的。
+    3.dao中就可以不用处理异常了，这样的话dao层产生的异常将直接抛给Service层进行处理
+    4.dao层只负责关闭PreparedStatement和ResultSet,Service层负责关闭Connection对象
+
+    注意：ThreadLocal为了解决多线程的并发问题提供了新的思路，主要是用于线程间的数据隔离
+
+    dao层的代码：
+
+     public List<Business> listBusinessByOrderTypeId(Integer orderTypeId) throws Exception {
+        List<Business> list = new ArrayList<>();
+        String sql = "select * from business where orderTypeId=? order by businessId";
+        try {
+          //获取连接
+          con = DBUtil.getConnection();
+          pst = con.prepareStatement(sql);
+          pst.setInt(1,orderTypeId);
+          rs = pst.executeQuery();
+          while(rs.next()) {
+            Business business = new Business();
+            business.setBusinessId(rs.getInt("businessId"));
+            business.setBusinessName(rs.getString("businessName"));
+            business.setBusinessAddress(rs.getString("businessAddress"));
+            business.setBusinessExplain(rs.getString("businessExplain"));
+            business.setBusinessImg(rs.getString("businessImg"));
+            business.setOrderTypeId(rs.getInt("orderTypeId"));
+            business.setStarPrice(rs.getDouble("starPrice"));
+            business.setDeliveryPrice(rs.getDouble("deliveryPrice"));
+            business.setRemarks(rs.getString("remarks"));
+            list.add(business);
+          }
+
+        }finally {
+          DBUtil.close(rs,pst);
+        }
+        return list;
+      }
+
+      service层的代码：
+
+        @Override
+        public List<Business> listBusinessByTypeId(Integer orderTypeId) {
+          List<Business> list  = new ArrayList<>();
+          BusinessDao dao = new BusinessDaoImpl();
+          try {
+            DBUtil.getConnection();
+            list = dao.listBusinessByOrderTypeId(orderTypeId);
+          } catch (Exception e) {
+            e.printStackTrace();
+          }finally {
+            DBUtil.close();
+          }
+          return list;
+        }
+
+        controller就是一个普通的Java类,无需继承HttpServlet:
+
+        public class BusinessController {
+          public Object listBusinessByOrderTypeId(HttpServletRequest request)throws Exception{
+            //获取请求参数 BusinessController/listBusinessByOrderTypeId?orderTypeId=1
+            Integer orderTypeId = Integer.valueOf(request.getParameter("orderTypeId"));
+            //调用service的方法
+            BusinessService service = new BusinessServiceImpl();
+            List<Business> list = service.listBusinessByTypeId(orderTypeId);
+            return list;
+          }
+        }
+
+        前端控制器Servlet返回Json的解决方案
+        Jackson是最流行的json解析器之一。后期SpringMVC框架默认的json解析器就是Jackson
+                //jackson中提供的对象 ObjectMapper
+                ObjectMapper objectMapper = new ObjectMapper();
+                //将调用方法返回的数据以json的格式返回给前端
+                out.print(objectMapper.writeValueAsString(result));
+
+
+        图片的解决方案
+        对于购物系统来说，商家的信息和食品的信息都要使用大量的图片。
+        在当前的项目中由于使用的图片比较小，所以会采用Base64的编码方式来存储图片信息
+        图片就是二进制数据，而Base64就可以将图片的二进制数据转换成字符串的形式。这样
+        能让我们方便的在数据库中对图片进行存储和读取
+
+
+    服务器接口API
+    1.business 商家
+      1.1 BusinessController/listBusinessByOrderTypeId?orderTypeId=1  根据点餐分类的编号来查询所属商家的信息
+      1.2 BusinessController/getBusinessById  参数：businessId  返回值：Business对象  功能：根据商家的编号查询商家的信息
+
+    2.food 食品
+
+      2.1 FoodController/listFoodBusinessId  参数：businessId  返回值： List<Food> 功能：根据商家的编号查询所属的食品信息
+    前端项目环境的搭建
+
+    1.开发环境
+      npm 环境  需要安装nodejs
+      vuecli的环境
+          npm install -g @vue/cli
+          vue create my-project vue ui
+      要替换为淘宝的镜像否则下载会很慢
+
+    2.使用vue ui命令创建cli脚手架
+
+    3.添加相应的依赖库
+      font-awesome   图标库
+      axios 封装了ajax
+      qs
+
+      qs是一个npm仓库所管理的包,可通过npm install qs命令进行安装（axios 自带qs , // import qs from 'qs'）
+
+      1. qs.parse()将URL解析成对象的形式:
+      例如：
+      let url = 'user=wdx&pwd=123&appToken=7d22e38e-5717-11e7-907b-a6006ad3dba0'
+      qs.parse(url)
+      console.log(qs.parse(url)) // {user:'wdx',pwd:'123',appToken:'7d22e38e-5717-11e7-907b-a6006ad3dba0'}
+
+      2. qs.stringify()将对象 序列化成URL的形式，以&进行拼接
+      例如：
+      let obj= {
+          user:'wdx',
+          pwd:'123',
+          appToken:'7d22e38e-5717-11e7-907b-a6006ad3dba0'
+      }
+      qs.stringify(obj)
+      console.log(qs.stringify(obj)) // 'user=wdx&pwd=123&appToken=7d22e38e-5717-11e7-907b-a6006ad3dba0'
+
+      4.添加图片到我们的项目中
+
+      5.在src下添加common.js文件 这是一个共通的工具类
+
+      6.修改main.js文件
+         import Vue from 'vue'
+         import App from './App.vue'
+         import router from './router'
+
+         import 'font-awesome/css/font-awesome.min.css'
+         import axios from 'axios'
+         import qs from 'qs'
+         import {
+         	getCurDate,
+         	setSessionStorage,
+         	getSessionStorage,
+         	removeSessionStorage,
+         	setLocalStorage,
+         	getLocalStorage,
+         	removeLocalStorage
+         } from './common.js'
+
+         Vue.config.productionTip = false
+
+         //设置axios的基础url部分
+         axios.defaults.baseURL = 'http://localhost:8080/elm/';
+         //将axios挂载到vue实例上，使用时就可以 this.$axios 这样使用了
+         Vue.prototype.$axios = axios;
+
+         Vue.prototype.$qs = qs;
+
+         Vue.prototype.$getCurDate = getCurDate;
+         Vue.prototype.$setSessionStorage = setSessionStorage;
+         Vue.prototype.$getSessionStorage = getSessionStorage;
+         Vue.prototype.$removeSessionStorage = removeSessionStorage;
+         Vue.prototype.$setLocalStorage = setLocalStorage;
+         Vue.prototype.$getLocalStorage = getLocalStorage;
+         Vue.prototype.$removeLocalStorage = removeLocalStorage;
+
+         router.beforeEach(function(to,from,next){
+         	let user = sessionStorage.getItem('user');
+         	//除了登录、注册、首页、商家列表、商家信息之外，都需要判断是否登录
+         	if(!(to.path=='/'||to.path=='/index'||to.path=='/businessList'||to.path=='/businessInfo'||to.path=='/login'||to.path=='/register')){
+         		if(user==null){
+         			router.push('/login');
+         			location.reload();
+         		}
+         	}
+         	next();
+         });
+
+         new Vue({
+           router,
+           render: h => h(App)
+         }).$mount('#app')
+
+         7.在前端项目中添加配制文件vue.config.js文件
+         module.exports = {
+         	devServer: {
+         		port: 8081 //前端的服务端口号，注意要与后台的服务端口号不同
+         	}
+         }
+
+         filter注意过滤器的跨域url要与前端url保持一致
+         response.setHeader("Access-Control-Allow-Origin","http://locahost:8081");
+
+
+         8.修改App.vue 添加样式并将#App的高度宽度设置为100%
+
+
+         9.完成首页的显示
+
+
+
+
+
+
+
+
